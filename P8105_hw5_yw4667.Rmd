@@ -1,0 +1,153 @@
+---
+title: "Untitled"
+output: html_document
+date: "2025-10-31"
+---
+
+```{r}
+library(tidyverse)
+set.seed(1030)
+```
+
+# Problem 1
+
+```{r}
+birthday_sim = function(n_room){
+  birthday = sample(1:365,n_room,replace = TRUE)
+  repeated_birthday = length(unique(birthday)) < n_room
+  return(repeated_birthday)
+}
+```
+
+```{r}
+birthday_sim_results =
+  expand_grid(
+    group_size = 2:50,
+    iter = 1:10000
+  ) %>% 
+  mutate(
+    result = map_lgl(group_size,birthday_sim)
+  ) %>% 
+  group_by(
+    group_size
+  ) %>% 
+  summarize(
+    prob_repeat = mean(result)
+  )
+birthday_sim_results
+```
+
+```{r}
+birthday_sim_results %>% 
+  ggplot(aes(x = group_size,y = prob_repeat)) +
+  geom_point() +
+  geom_line() +
+  labs(
+    title = "Probability of two people having same birthday",
+    x = "Group Size",
+    y = "Probability"
+  )
+```
+
+# Comments
+This plot visually demonstrates the famous "Birthday Paradox," a classic statistical counterintuition. It charts the rapidly increasing probability that at least two people in a group share a birthday.
+
+Statistically, the curve is not linear but follows a convex, accelerating path because the number of possible pairings (and thus collision chances) grows quadratically with group size.
+
+The key insight is how few people are needed for a high probability. With just 23 people, the probability exceeds 50%, a number far lower than most people intuitively guess. By a group size of 50, the probability is near-certainty (97%). 
+
+# Problem 2
+
+```{r}
+sim_ttest = function(n = 30, mu = 0, sigma = 5) {
+  
+  sim_data = tibble(
+    x = rnorm(n, mean = mu, sd = sigma)
+    )
+  
+  ttest_result = t.test(sim_data$x,mu = 0) %>% 
+    broom::tidy()
+  
+  sim_data %>% 
+  summarize(
+    mu_hat = ttest_result$estimate,
+    p_value = ttest_result$p.value
+  )
+}
+```
+
+```{r}
+sim_results_df = 
+  expand_grid(
+    true_mu = 0:6,
+    iter = 1:5000
+  ) %>% 
+  mutate(
+    ttest_result = map(true_mu, ~sim_ttest(n = 30,mu = .x,sigma = 5))
+  ) %>% 
+  unnest(ttest_result) %>% 
+  mutate(
+    rejected = p_value < 0.05
+  )
+sim_results_df
+```
+
+```{r}
+power_results = 
+  sim_results_df %>% 
+  group_by(true_mu) %>% 
+  summarize(
+    power = mean(rejected),
+    avg_mu_hat = mean(mu_hat)
+  )
+power_results
+```
+
+```{r}
+plot1 =
+  power_results %>% 
+  ggplot(aes(x = true_mu,y = power)) +
+  geom_point() +
+  geom_line() +
+  labs(
+    title = "Power vs Effect Size",
+    x = "True μ",
+    y = "Power") +
+  scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.1))
+plot1
+```
+## Description
+This plot shows the relationship between statistical power and the true effect size (μ). As the true effect size increases, the power of a statistical test to detect that effect also increases, forming a characteristic S-shaped curve. The curve demonstrates that larger true differences are easier to detect with high probability, while detecting smaller effects requires more sensitive tests or larger sample sizes to achieve sufficient power.
+
+```{r}
+plot2 =
+  sim_results_df %>% 
+  group_by(true_mu) %>% 
+  summarize(
+    avg_mu_hat_all = mean(mu_hat),
+    avg_mu_hat_rejected = mean(mu_hat[rejected]),
+    .groups = "drop"
+  ) %>% 
+  ggplot(aes(x = true_mu)) +
+    geom_point(aes(y = avg_mu_hat_all,color = "All Samples")) +
+    geom_line(aes(y = avg_mu_hat_all, color = "All Samples")) +
+    geom_point(aes(y = avg_mu_hat_rejected,color = "Rejected Only")) +
+    geom_line(aes(y = avg_mu_hat_rejected, color = "Rejected Only")) +
+  labs(
+    title = "Average Estimated μ vs True μ",
+    x = "True μ",
+    y = "Average Estimated μ",
+    colour = ""
+  )
+plot2
+```
+
+## Comment
+This plot shows the average estimated μ versus the true μ. The "All Samples" line closely follows the true μ, indicating unbiased estimation. The "Rejected Only" line, however, deviates above the true μ, especially for smaller μs. This occurs because statistical significance filtering selects samples where μ hat is overestimated due to random variation, leading to selection bias. Thus, the average μ hat for rejected tests is not equal to the true μ; it is inflated.
+
+## Problem 3
+
+```{r}
+
+```
+
